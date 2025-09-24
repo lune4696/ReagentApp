@@ -12,6 +12,8 @@
 
 (defn hello []
   [:<>
-   [:p "Hello, ReagentApp is running!"]
+   [:p.someclass "Hello world, " [:strong "ReagentApp"] " is running!"]
    [:p "Here's an example of using a component with state:"]
    [click-counter click-count]])
+
+(defn game [])
