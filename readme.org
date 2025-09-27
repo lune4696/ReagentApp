@@ -1,0 +1,10 @@
+#+TITLE: ReagentAppTest
+
+* shadow-cljs
+** What's this
+- [[https://clojurescript.org/tools/shadow-cljs][ドキュメント]]
+  - ClojureScript の 多機能ツール
+  - [[https://www.npmjs.com][npm]] ライブラリとして配布
+  - パッケージマネージャー統合ツールとして、 [[https://clojars.org][clojars]] だけでなく [[https://www.npmjs.com][npm]] のライブラリを自然に使えるようにする
+  - ビルドツールとして、 [[https://nodejs.org/ja][nodejs]], [[https://bun.sh][bun]] に対応し、ClojureScript のプロジェクトを shadow-cljs compile <app> でコンパイル
+  - 監視ツールとして、 shadow-cljs watch <app> でコンパイルから立ち上げまでを一括で提供
