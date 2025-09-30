@@ -1,9 +1,15 @@
 {:builds
  {:app {:asset-path "/js"
         :modules {:main {:init-fn app.core/main}}
-        :output-dir "public/js"
-        :target :browser}}
+        :output-dir "resources/public/js"
+        :target :browser
+        ;; :init-fn app.core/main
+        ;; :output-dir "out"
+        ;; :target :react-native
+        }} 
  :dependencies [[reagent "2.0.0-alpha2"]]
- :dev-http {3000 "public"}
+ :dev-http {3000 "resources/public"}
  :nrepl {:port 3333}
- :source-paths ["src"]}
+ :source-paths ["src"]
+ :resource-paths ["resources/"]
+ :repl-options {:init-ns app.hello}}

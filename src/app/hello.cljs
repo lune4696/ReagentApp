@@ -1,5 +1,6 @@
 (ns app.hello
-  (:require [reagent.core :as r]))
+  (:require [reagent.core :as r] 
+            ["plotly.js-dist-min" :as Plotly]))
 
 (defn click-counter [c]
   [:div
@@ -21,40 +22,15 @@
    :comments ["^{:key item} は必ずしも必要ないが、リストに対してユニークキーを付与すると
                React のパフォーマンス改善に役立つ (by reagent tutorial)"
               "実際には引き渡さないと描画バグが起きやすいので、絶対渡さないといけない"
-              "キーの付与は、上記のようにメタデータか、コンポーネントの第一引数として渡す"]}
-  [items] [:ul
-           ;; (map-with-key #((vector :li "Item: " %)) items)
-           (for [item items]
-             ^{:key item} [:li "Item: " item])])
+              "キーの付与は、上記のようにメタデータか、コンポーネントの第一引数として渡す"
+              "ul: un-ordered list, ol: ordered-list, li: list"]}
+  [items] [:ul (->> items (map-indexed (fn [i c] (with-meta [:li "Item: " c] {:key i}))))])
 
-;; ul: un-ordered-listup
-;; ol: ordered-listup
-;; li: html の箇条書きタグ
-
-(defn timer-component []
-  (let [seconds-elapsed (r/atom 0)]
-    (fn []
-      (js/setTimeout #(swap! seconds-elapsed inc) 1000)
-      [:div
-       "Seconds Elapsed: " @seconds-elapsed])))
 
 (defn timer-fn-component []
   (r/with-let [seconds-elapsed (r/atom 0)]
     (js/setTimeout #(swap! seconds-elapsed inc) 1000)
     [:div "Seconds Elapsed: " @seconds-elapsed]))
-
-(defn timer-class-component []
-  (let [seconds-elapsed (r/atom 0)]
-    (r/create-class                     ;; クラスなので内部状態を持てる
-     {:component-did-mount              ;; DOM にコンポーネントがマウントされた直後のみ呼ばれる
-      (fn []
-        (js/setInterval #(swap! seconds-elapsed inc) 1000))
-      :reagent-render                   ;; クラスコンポーネントに対する render 処理
-      (fn []
-        [:div "Seconds Elapsed: " @seconds-elapsed])})))
-
-(def sec (r/atom 0))
-(->> (js/setInterval #(swap! sec inc) 1000))
 
 
 (defn atom-input
@@ -70,8 +46,8 @@
   (let [val (r/atom "foo")]
     (fn []
       [:div
-       [:p "The value is now: " @val]
-       [:p "Change it here: " [atom-input val]]])))
+       [:p
+        "The value is now: " @val [:br] "Change it here: " [atom-input val]]])))
 
 (defn calc-bmi [{:keys [height weight bmi] :as data}]
   (let [h (/ height 100)]
@@ -116,15 +92,77 @@
       [:span {:style {:color color}} diagnose]
       [slider :bmi bmi 10 50 :weight]]]))
 
-(defn hello []
+
+(defn plot [{:keys [data layout node]}]
+  (r/with-let [f (fn [el]
+                   (when el
+                     (reset! node el)
+                     (r/after-render #(.newPlot Plotly @node (clj->js @data) (clj->js @layout)))) )]
+    [:div {:ref f}]
+    (finally (when @node (.purge Plotly @node)))))
+
+(defn update-plot [{:keys [data node]}]
+  (reset! data [{:x (->> (range) (map identity) (take 5))
+                 :y (->> (range) (map #(* 2 %)) (take 5))
+                 :type "scatter"}])
+  (when @node
+    (.react Plotly @node (clj->js @data) (clj->js nil))))
+
+
+(def data (r/atom  [{:x (->> (range) (map identity) (take 5) )
+                     :y (->> (range) (map #(* % %)) (take 5) )
+                     :type "scatter"}]))
+(def layout (r/atom {:title "Sample"}))
+(def plot-node (atom nil))
+
+(def current-page (r/atom :home))
+
+(def page-home
   [:<>
    [:p.someclass "Hello world, " [:strong "ReagentApp"] " is running!"]
-   [:p "Here's an example of using a component with state:"]
-   [:p [:div "List is like: "[lister-simple (range 5)]]]
-   [:p [click-counter click-count]] ;; component を返す関数は、() ではなく [] で評価
-   [:p [:div [:strong "再描画"] "可能なリスト" [lister-simple (->> counters (map-with-key click-counter))]]]
-   [:p [timer-fn-component]]
-   [:p [:div "sec: " @sec]]
-   [:p [shared-state]]
-   [:p [bmi-component]]
-   ])
+   [:p [:strong "再描画"] "可能なリスト"] [lister-simple (->> counters (map-with-key click-counter))]
+   [:p [:strong "再描画"] "可能なリスト"] [lister-simple (range 3)]
+   [:p] [timer-fn-component]
+   [:p] [shared-state]
+   [:p] [bmi-component]
+   [:p] [:section
+         [:p "plotly.js によるプロット"]
+         [plot {:data data :layout layout :node plot-node}]
+         [:button {:on-click #(update-plot {:data data :node plot-node})} "Update Plot"]]])
+
+(def page-plot [:<>
+   [:p.someclass "This is " [:strong "Plot"] " page"]
+   [:p] [:section
+         [:p "plotly.js によるプロット"]
+         [plot {:data data :layout layout :node plot-node}]
+         [:button {:on-click #(update-plot {:data data :node plot-node})} "Update Plot"]]])
+
+(defn rooter []
+  (fn []
+    (case @current-page
+      :home page-home
+      :plot page-plot)))
+
+(defn hello [] (rooter))
+
+
+;; (defn timer-component []
+;;   (let [seconds-elapsed (r/atom 0)]
+;;     (fn []
+;;       (js/setTimeout #(swap! seconds-elapsed inc) 1000)
+;;       [:div
+;;        "Seconds Elapsed: " @seconds-elapsed])))
+
+;; (defn timer-class-component []
+;;   (let [seconds-elapsed (r/atom 0)]
+;;     (r/create-class                     ;; クラスなので内部状態を持てる
+;;      {:component-did-mount              ;; DOM にコンポーネントがマウントされた直後のみ呼ばれる
+;;       (fn []
+;;         (js/setInterval #(swap! seconds-elapsed inc) 1000))
+;;       :reagent-render                   ;; クラスコンポーネントに対する render 処理
+;;       (fn []
+;;         [:div "Seconds Elapsed: " @seconds-elapsed])})))
+
+;; グローバルの時間カウント
+;; (def sec (r/atom 0))
+;; (->> (js/setInterval #(swap! sec inc) 1000))

@@ -9,3 +9,4 @@ report.html
 .lsp
 
 .clj-kondo/
+.lein-env
