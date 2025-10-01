@@ -1,6 +1,10 @@
 (ns app.hello
   (:require [reagent.core :as r] 
-            ["plotly.js-dist-min" :as Plotly]))
+            ["plotly.js-dist-min" :as Plotly]
+            ["three" :as Three]
+            ["three/examples/jsm/controls/OrbitControls.js" :refer [OrbitControls]]
+            ;; ["three/addons/controls/OrbitControls.js" :refer [OrbitControls]]
+            ))
 
 (defn click-counter [c]
   [:div
@@ -94,12 +98,13 @@
 
 
 (defn plot [{:keys [data layout node]}]
-  (r/with-let [f (fn [el]
-                   (when el
-                     (reset! node el)
-                     (r/after-render #(.newPlot Plotly @node (clj->js @data) (clj->js @layout)))) )]
-    [:div {:ref f}]
-    (finally (when @node (.purge Plotly @node)))))
+  (r/with-let
+      [f (fn [el]
+           (when el
+             (reset! node el)
+             (r/after-render #(.newPlot Plotly @node (clj->js @data) (clj->js @layout)))))] 
+      [:div {:ref f}]
+      (finally (when @node (.purge Plotly @node)))))
 
 (defn update-plot [{:keys [data node]}]
   (reset! data [{:x (->> (range) (map identity) (take 5))
@@ -108,6 +113,61 @@
   (when @node
     (.react Plotly @node (clj->js @data) (clj->js nil))))
 
+(defn rolling-box [{:keys [width height ratio]
+                   :or {ratio (/ 9 16)}
+                   :as opt}]
+
+  (r/with-let
+      [node (atom nil)
+       scene (Three/Scene.)
+       camera (Three/PerspectiveCamera. 90 1 0.1 3000)
+       renderer (Three/WebGLRenderer. #js {:alpha true})
+       geometry (Three/BoxGeometry. 500 500 500)
+       box-material (Three/MeshStandardMaterial. #js {:color 0x0000FF})
+       color-bg (Three/Color. 0x808080)
+       box (Three/Mesh. geometry box-material)
+       light (Three/DirectionalLight. 0xFFFFFF 2)
+       ambient (Three/AmbientLight. 0xFFFFFF 0.5)
+       update-size (fn []
+                     (when @node
+                       (let [w (or width (.-clientWidth @node))
+                             h (or height (* w ratio))]
+                         (.setSize renderer w h)
+                         (set! (.-aspect camera) (/ w h))
+                         (.updateProjectionMatrix camera))))
+       f (fn [el]
+           (when el (reset! node el))
+           (r/after-render
+            #(when @node
+               (when-not (.contains @node (.-domElement renderer)) 
+                 (.appendChild @node (.-domElement renderer)))
+               (let [width (or width (.-clientWidth @node))
+                     height (or height (* width ratio))
+                     controls (OrbitControls. camera (.-domElement renderer))]
+                 
+                 (update-size)
+                 (js/window.addEventListener "resize" update-size)
+                 (.setPixelRatio renderer js/devicePixelRatio)
+                 ;; (set! (.-background scene) color-bg)
+                 (.setClearColor renderer 0x000000 0)
+                 (.set camera.position 0 0 1000)
+                 (.add scene box)
+                 (.add scene light)
+                 (.add scene ambient)
+                 (.set light.position 1 1 1)
+                 (.render renderer scene camera)
+                 (letfn
+                     [(tick []
+                        (js/requestAnimationFrame tick) 
+                        (set! (.. box -rotation -x) (+ (.. box -rotation -x) 0.01))
+                        (set! (.. box -rotation -y) (+ (.. box -rotation -y) 0.01))
+                        (.update controls)
+                        (.render renderer scene camera))]
+                     (tick))))))]
+      [:div {:ref f}]
+      (finally (when @node
+                 (.removeChild @node (.-domElement renderer))
+                 (js/window.removeEventListener "resize" update-size)))))
 
 (def data (r/atom  [{:x (->> (range) (map identity) (take 5) )
                      :y (->> (range) (map #(* % %)) (take 5) )
@@ -128,7 +188,8 @@
    [:p] [:section
          [:p "plotly.js によるプロット"]
          [plot {:data data :layout layout :node plot-node}]
-         [:button {:on-click #(update-plot {:data data :node plot-node})} "Update Plot"]]])
+         [:button {:on-click #(update-plot {:data data :node plot-node})} "Update Plot"]]
+   [:p] [rolling-box {}]])
 
 (def page-plot [:<>
    [:p.someclass "This is " [:strong "Plot"] " page"]
