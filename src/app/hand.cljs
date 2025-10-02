@@ -78,7 +78,10 @@
        renderer (Three/WebGLRenderer. #js {:alpha true})
        light (Three/DirectionalLight. 0xFFFFFF 2)
        ambient (Three/AmbientLight. 0xFFFFFF 0.5)
-       hand-joints (hand-joint-three {:radius 0.025 :color 0x00FF00 :xyz hand-pos})
+       hand-joints (hand-joint-three {:radius 0.025 :color 0x00FF00
+                                      :xyz (if @hand-pos
+                                             (first @hand-pos)
+                                             (->> (range 63) (mapv (partial * 0))))})
        hand-lines (hand-bone-three hand-joints hand-bones 0xFF0000)
        f (fn [el]
            (when el (reset! node el))

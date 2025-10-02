@@ -7,7 +7,8 @@
         ;; :output-dir "out"
         ;; :target :react-native
         }} 
- :dependencies [[reagent "2.0.0-alpha2"]]
+ :dependencies [[reagent "2.0.0-alpha2"]
+                [cheshire "6.1.0"]]
  :dev-http {3000 "resources/public"}
  :nrepl {:port 3333}
  :source-paths ["src"]
