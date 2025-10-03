@@ -14,7 +14,7 @@
                 mesh)))
        vec))
 
-(defn hand-bone-three [spheres bones color]
+(defn hand-line-three [spheres bones color]
   (map (fn [[i j]]
          (let [p1 (.-position (nth spheres i))
                p2 (.-position (nth spheres j))]
@@ -43,6 +43,9 @@
                  [18 19]
                  [19 20]])
 
+(defn get-bone-pos0 [xyzs i] (nth xyzs (first (nth hand-bones i))))
+(defn get-bone-pos1 [xyzs i] (nth xyzs (second (nth hand-bones i))))
+
 (def hand-landmark
   ^{:doc "https://ai.google.dev/edge/mediapipe/solutions/vision/hand_landmarker?hl=ja"}
   {:indices {0 "WRIST"
@@ -67,9 +70,8 @@
              19 "PINKY_DIP"
              20 "PINKY_TIP"}})
 
-(defn hand-skeleton [{:keys [width height ratio hand-pos]
-                    :or {ratio (/ 9 16)}
-                    :as opt}]
+(defn hand-skeleton [{:keys [width height ratio stream]
+                      :or {ratio (/ 9 16)}}]
 
   (r/with-let
       [node (atom nil)
@@ -79,34 +81,54 @@
        light (Three/DirectionalLight. 0xFFFFFF 2)
        ambient (Three/AmbientLight. 0xFFFFFF 0.5)
        hand-joints (hand-joint-three {:radius 0.025 :color 0x00FF00
-                                      :xyz (if @hand-pos
-                                             (first @hand-pos)
+                                      :xyz (if (:frames @stream)
+                                             (first (:frames @stream))
                                              (->> (range 63) (mapv (partial * 0))))})
-       hand-lines (hand-bone-three hand-joints hand-bones 0xFF0000)
+       hand-lines (hand-line-three hand-joints hand-bones 0xFF0000)
        f (fn [el]
            (when el (reset! node el))
            (r/after-render
-            #(when @node
-               (when-not (.contains @node (.-domElement renderer))
-                 (.appendChild @node (.-domElement renderer)))
-               (let [width (or width (.-clientWidth @node))
-                     height (or height (* width ratio))
-                     controls (OrbitControls. camera (.-domElement renderer))
-                     update (partial three/resize-view node width height ratio renderer camera)]
-                 (update)
-                 (js/window.addEventListener "resize" update)
-                 (three/init-view scene renderer camera light ambient)
-                 (.set camera.position 0 0 1)
-                 (doseq [a hand-joints] (.add scene a))
-                 (doseq [a hand-lines] (.add scene a))
-                 (.render renderer scene camera)
-                 (letfn
-                     [(tick []
-                        (js/requestAnimationFrame tick)
-                        (.update controls)
-                        (.render renderer scene camera))]
-                     (tick))))))]
+            (fn []
+              (when @node
+                (when-not (.contains @node (.-domElement renderer))
+                  (.appendChild @node (.-domElement renderer)))
+                (let [width (or width (.-clientWidth @node))
+                      height (or height (* width ratio))
+                      controls (OrbitControls. camera (.-domElement renderer))
+                      update-ctrl (partial three/resize-view node width height ratio renderer camera)]
+                  (update-ctrl)
+                  (js/window.addEventListener "resize" update-ctrl)
+                  (three/init-view scene renderer camera light ambient)
+                  (.set camera.position 0 0 1)
+                  (doseq [a hand-joints] (.add scene a))
+                  (doseq [a hand-lines] (.add scene a))
+                  (.render renderer scene camera)
+                  (letfn
+                      [(tick []
+                         (js/requestAnimationFrame tick)
+                         (when (some? (:frames @stream))
+                           ;; 座標更新処理
+                           (let [xyzs
+                                 (partition 3 (nth (:frames @stream)
+                                                   (min (dec (:length @stream))
+                                                        (int (:idx @stream)))))]
+                             (doseq [[i sphere] (map-indexed vector hand-joints)]
+                               (three/repos sphere (nth xyzs i)))
+                             (doseq [[i line] (map-indexed vector hand-lines)]
+                               (let [pos (.. line -geometry -attributes -position)] 
+                                 (apply #(.setXYZ pos 0 %1 %2 %3) (get-bone-pos0 xyzs i))
+                                 (apply #(.setXYZ pos 1 %1 %2 %3) (get-bone-pos1 xyzs i))
+                                 (set! pos.needsUpdate true))))
+
+                           ;; ループ処理
+                           (when (not (:pause @stream))
+                             (swap! stream #(let [idx (mod (+ (:idx %) 0.1) (:length %))
+                                                  knob (* idx (/ 1 (:length %)) 1000)]
+                                              (assoc % :idx idx :knob knob)))))
+                         (.update controls)
+                         (.render renderer scene camera))]
+                    (tick)))))))]
       [:div {:ref f}]
       (finally (when @node
                  (.removeChild @node (.-domElement renderer))
-                 (js/window.removeEventListener "resize" update)))))
+                 (js/window.removeEventListener "resize")))))

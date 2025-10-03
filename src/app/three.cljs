@@ -34,3 +34,5 @@
         geom   (Three/BufferGeometry.)]
     (.setFromPoints geom points)
     (Three/Line. geom (Three/LineBasicMaterial. #js {:color color}))))
+
+(defn repos [target [x y z]] (.set (.-position target) x y z))

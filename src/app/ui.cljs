@@ -16,7 +16,7 @@
            :value @value
            :on-change #(reset! value (-> % .-target .-value))}])
 
-(defn slider [target param value min max invalidates calc]
+(defn slider [target param value min max invalidates recalc]
   [:input {:type "range"
            :value value
            :min min
@@ -29,7 +29,7 @@
                                    (-> data
                                        (assoc param new-value)
                                        (dissoc invalidates)
-                                       (calc))))))}])
+                                       (recalc))))))}])
 
 (defn lister
   {:doc "リスト"
