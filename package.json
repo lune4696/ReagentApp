@@ -32,11 +32,14 @@
     "zprint-clj": "~0.8.0"
   },
   "dependencies": {
+    "autoprefixer": "^10.4.21",
     "create-react-class": "~15.6.3",
     "plotly": "^1.0.6",
     "plotly.js-dist-min": "^3.1.1",
+    "postcss": "^8.5.6",
     "react": "~16.8.0",
     "react-dom": "~16.8.0",
+    "tailwindcss": "^3.4.18",
     "three": "^0.180.0"
   }
 }

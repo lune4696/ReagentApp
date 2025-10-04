@@ -2,17 +2,21 @@
   (:require [reagent.core :as r]))
 
 
-(defn timer []
+(defn timer [comp class]
   (r/with-let [sec (r/atom 0)]
     (js/setTimeout #(swap! sec inc) 1000)
-    [:div "Seconds Elapsed: " @sec]))
+    [comp class
+     (mod (int (/ @sec (* 24 60))) 60) ":"
+     (mod (int (/ @sec 60)) 60) ":"
+     (mod @sec 60)]))
 
 (defn text-input
   {:comments [":input マップの :on-change 関数には react から event object が渡される"
               ".-<any> はフィールドアクセス"
               "この場合 event.target.value で value を更新している"]}
   [value]
-  [:input {:type "text"
+  [:input {:class "w-full border"
+           :type "text"
            :value @value
            :on-change #(reset! value (-> % .-target .-value))}])
 

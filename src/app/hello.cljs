@@ -7,7 +7,7 @@
             [app.hand :as hand]))
 
 (defn click-counter [c]
-  [:div "The atom " [:code "click-count"] " has value: " @c ". "
+  [:span "reagent/atom " [:code "click-count"] " : " @c ". "
    [:input {:type "button" :value "Click me!" :on-click #(swap! c inc)}]])
 
 (defn map-with-key
@@ -24,7 +24,7 @@
   [:div "Data keys: " (if @data (keys @data) "nil") ". "
    [:input {:type "button" :value "Load" :on-click #(get-json @path data)}]])
 
-(def counters [(r/atom 0) (r/atom 1) (r/atom 2)])
+(def counters [(r/atom 0) (r/atom 1)])
 (def bmi-data (r/atom (bmi/calc-bmi {:height 100 :weight 80})))
 (def plot-data (r/atom  [{:x (->> (range) (map identity) (take 5) )
                      :y (->> (range) (map #(* % %)) (take 5) )
@@ -36,14 +36,14 @@
 
 (def stream-data (r/atom {:frames hand-frames :length 3 :idx 0 :knob 0.0 :pause false}))
 (defn calc-idx [{:keys [length knob] :as data}] (assoc data :idx (* length knob 1e-3)))
-(defn stream-seekbar [data]
+(defn stream-seekbar [comp data]
   (let [{:keys [length idx knob]} @data
         [color status] (cond (= knob 0) ["red" "start"]
                              (= knob 1000) ["blue" "end"]
                              :else ["green" "progress"])]
-    [:div "Frame: " (int idx) " / " (int length) " "
+    [comp (int idx) "/" (int length) " "
      [:span {:style {:color color}} status]
-     [ui/slider data :knob knob 0 1000 :idx calc-idx]]))
+      [ui/slider data :knob knob 0 1000 :idx calc-idx]]))
 
 (def layout (r/atom {:title "Sample"}))
 
@@ -52,37 +52,76 @@
 (def current-page (r/atom :home))
 
 (def filepath (r/atom nil))
-(defn input-filepath [a] [:div [:p "JsonPath: " @a [:br] "Input: " [ui/text-input a]]])
 
 (def experiment-data (r/atom nil))
 
 (def page-home
   [:<>
-   [:p.someclass "Hello world, " [:strong "ReagentApp"] " is running!"]
-   [:p [:strong "再描画"] "可能なリスト"] [ui/lister (->> counters (map-with-key click-counter))]
-   [:p] [ui/timer]
-   [:p] [bmi/bmi bmi-data]
-   [:p] [:section
-         [:p "plotly.js によるプロット"]
-         [plt/plot {:data plot-data :layout layout :node plot-node}]
-         [:button {:on-click #(plt/update-plot {:data plot-data :node plot-node})} "Update Plot"]]
-   [:p] [box/rolling-box {}]
-   [:p] [hand/hand-skeleton {:stream stream-data}]
-   [:p] [stream-seekbar stream-data]
-   [:p] [:div [:input {:type "button"
-                       :value "start / stop"
-                       :on-click #(swap! stream-data
-                                         (fn [a] (assoc a :pause (not (:pause a)))))}]]
-   [:p] [input-filepath filepath]
-   [:p] [load-json filepath experiment-data]
-   [:p] [:div
-         [:input {:type "button"
-                  :value "Set new data"
-                  :on-click #(swap! stream-data
-                                    (fn [a] (let [frames (->> @experiment-data
-                                                              first val
-                                                              :y-train)]
-                                              (assoc a :frames frames :length (count frames)))))}]]])
+   [:div {:class "flex h-16 items-center justify-center bg-blue-300 gap-2 text-2xl"}
+    [:strong "ReagentApp"]]
+   [ui/timer :div {:class "flex items-center justify-end bg-blue-100 pe-4"}]
+   [:div {:class "bg-blue-50"}
+    ;; [:p "再描画可能なリスト"]
+    ;; [ui/lister (->> counters (map-with-key click-counter))]
+    [:div {:class "flex justify-center items-center p-6"}
+     [:div {:class "w-1/2 p-6 rounded-xl shadow"}
+      [bmi/bmi bmi-data]]]
+    [:div {:class "grid grid-cols-2 gap-8 p-6 shadow"}
+     [:section
+      [:div
+       {:class "pb-4"}
+       "plotly.js によるプロット"]
+      [:div
+       {:class "bg-white p-1 rounded-xl shadow"}
+       [plt/plot {:data plot-data :layout layout :node plot-node}]]
+      [:div
+       {:class "flex"}
+       ;; {:class "flex items-center justify-end"}
+       [:button
+        {:class "flex-1 items-center justify-center bg-gray-50 mt-4 p-2 rounded-xl shadow"
+         :on-click #(plt/update-plot {:data plot-data :node plot-node})}
+        "Update Plot"]]]
+     [:section
+      [:div
+       {:class "pb-4"}
+       "three.js による 3D アニメーション"]
+      [:div
+       {:class "bg-white p-1 rounded-xl shadow"}
+       [box/rolling-box {}]]]]
+
+    [:section {:class "grid grid-cols-3 gap-8 p-6"}
+     [:div {:class "col-span-2"}
+      [:div
+       {:class "bg-gray-50 mt-4 p-2 rounded-xl shadow"}
+       [hand/hand-skeleton {:stream stream-data}]]]]
+    [:section {:class "grid grid-cols-3 gap-8 p-6"}
+     [:div {:class "col-span-2"}
+      [:div {:class "grid grid-cols-[9fr_1fr] gap-2"}
+       [stream-seekbar :span stream-data]
+       [:div {:class "flex"}
+        [:button
+         {:class "flex-1 items-center justify-center bg-green-300 mt-4 p-2 rounded-xl shadow"
+          :on-click #(swap! stream-data (fn [a] (assoc a :pause (not (:pause a)))))}]]]]
+     [:div {:class "col-span-1"}
+      [:div {:class "grid grid-cols-3 gap-4"}
+       [:div {:class "col-span-1"} "JsonPath:"]
+       [:div {:class "col-span-2"} [ui/text-input filepath]]]
+      [:div {:class "grid grid-cols-2 gap-4"}
+       [:button
+        {:class "flex items-center justify-center bg-gray-50 mt-4 p-2 rounded-xl shadow"
+         :type "button"
+         :on-click #(get-json @filepath experiment-data)}
+        "Load"]
+       [:button
+        {:class "flex items-center justify-center bg-gray-50 mt-4 p-2 rounded-xl shadow"
+         :type "button"
+         :on-click #(swap!
+                     stream-data
+                     (fn [a] (let [frames (->> @experiment-data
+                                               first val
+                                               :y-train)]
+                               (assoc a :frames frames :length (count frames)))))}
+        "Set"]]]]]])
 
 (def page-plot [:<>
    [:p.someclass "This is " [:strong "Plot"] " page"]
