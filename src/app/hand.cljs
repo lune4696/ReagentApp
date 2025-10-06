@@ -131,4 +131,6 @@
       [:div {:ref f}]
       (finally (when @node
                  (.removeChild @node (.-domElement renderer))
-                 (js/window.removeEventListener "resize")))))
+                 (js/window.removeEventListener
+                  "resize"
+                  (partial three/resize-view node width height ratio renderer camera))))))

@@ -15,14 +15,6 @@
   [f coll]
   (->> coll (map-indexed (fn [i c] ^{:key i} [f c]))))
 
-(defn get-json [path a]
-  (-> (js/fetch path)
-      (.then #(.json %))
-      (.then #(reset! a (js->clj % :keywordize-keys true)))))
-
-(defn load-json [path data]
-  [:div "Data keys: " (if @data (keys @data) "nil") ". "
-   [:input {:type "button" :value "Load" :on-click #(get-json @path data)}]])
 
 (def counters [(r/atom 0) (r/atom 1)])
 (def bmi-data (r/atom (bmi/calc-bmi {:height 100 :weight 80})))
@@ -35,7 +27,14 @@
                   [0.400955498218536, 0.205585330724716, 9.38118489557382e-7, 0.310901552438736, 0.247439190745354, -0.0293404627591372, 0.237640038132668, 0.345006465911865, -0.0528106316924095, 0.174135193228722, 0.429725468158722, -0.0675355494022369, 0.115332558751106, 0.473879545927048, -0.0862407013773918, 0.302856206893921, 0.42409747838974, -0.0969566255807877, 0.264999538660049, 0.592138946056366, -0.125136256217957, 0.24180069565773, 0.691242218017578, -0.136904492974281, 0.22350138425827, 0.766949772834778, -0.14394323527813, 0.373763084411621, 0.444617450237274, -0.0944573059678078, 0.357569664716721, 0.637337446212769, -0.124440521001816, 0.342149674892426, 0.751557588577271, -0.140231996774673, 0.327044934034348, 0.833150506019592, -0.150456622242928, 0.434781581163406, 0.445273488759995, -0.0878696367144585, 0.426084339618683, 0.626259922981262, -0.117221802473068, 0.411892145872116, 0.730520248413086, -0.137139424681664, 0.40092408657074, 0.803186118602753, -0.149988174438477, 0.481943368911743, 0.429522097110748, -0.0796982869505882, 0.468256086111069, 0.533265590667725, -0.106856465339661, 0.452778249979019, 0.562870264053345, -0.115655839443207, 0.440409541130066, 0.576109945774078, -0.118771947920322]])
 
 (def stream-data (r/atom {:frames hand-frames :length 3 :idx 0 :knob 0.0 :pause false}))
+
+(defn get-json [path a]
+  (-> (js/fetch path)
+      (.then #(.json %))
+      (.then #(reset! a (js->clj % :keywordize-keys true)))))
+
 (defn calc-idx [{:keys [length knob] :as data}] (assoc data :idx (* length knob 1e-3)))
+
 (defn stream-seekbar [comp data]
   (let [{:keys [length idx knob]} @data
         [color status] (cond (= knob 0) ["red" "start"]
@@ -55,11 +54,40 @@
 
 (def experiment-data (r/atom nil))
 
+(def hoge (r/atom true))
+
+(defn toggle-button []
+  (let [active? (r/atom false)]
+    (fn []
+      [:button
+       {:class (str "px-4 py-2 rounded font-bold transition "
+                    (if @active?
+                      "bg-blue-600 text-white hover:bg-blue-700"
+                      "bg-gray-300 text-black hover:bg-gray-400"))
+        :on-click #(swap! active? not)}
+       (if @active? "ON" "OFF")])))
+
+
+(defn play-btn [trigger]
+  (let [active? (r/atom (:pause @trigger))]
+    (fn []
+      [:button
+       {:class
+        (str "flex-1 items-center justify-center hover:ring hover:ring-indigo-400 mt-4 p-2 rounded-xl shadow"
+             (if @active? 
+               " bg-green-300"
+               " bg-red-300"))
+        :on-click #((swap! trigger (fn [a] (assoc a :pause (not (:pause a)))))
+                    (swap! active? (fn [_] (:pause @trigger))))}
+       (if @active? "▷" "⫾⫾")])))
+
 (def page-home
   [:<>
    [:div {:class "flex h-16 items-center justify-center bg-blue-300 gap-2 text-2xl"}
     [:strong "ReagentApp"]]
-   [ui/timer :div {:class "flex items-center justify-end bg-blue-100 pe-4"}]
+   [ui/timer :div
+    {:class
+     "flex items-center justify-end bg-gradient-to-b from-blue-300 to-blue-50 pe-4"}]
    [:div {:class "bg-blue-50"}
     ;; [:p "再描画可能なリスト"]
     ;; [ui/lister (->> counters (map-with-key click-counter))]
@@ -99,9 +127,9 @@
       [:div {:class "grid grid-cols-[9fr_1fr] gap-2"}
        [stream-seekbar :span stream-data]
        [:div {:class "flex"}
-        [:button
-         {:class "flex-1 items-center justify-center bg-green-300 mt-4 p-2 rounded-xl shadow"
-          :on-click #(swap! stream-data (fn [a] (assoc a :pause (not (:pause a)))))}]]]]
+        ;; [toggle-button]
+        [play-btn stream-data]
+        ]]]
      [:div {:class "col-span-1"}
       [:div {:class "grid grid-cols-3 gap-4"}
        [:div {:class "col-span-1"} "JsonPath:"]
